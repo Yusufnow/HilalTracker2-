@@ -2,442 +2,346 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <meta name="theme-color" content="#1e3c72">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>🌙 Mondsichel-Rechner Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prof. Hilal Rechner & Himmelsansicht</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1e3c72; overflow: hidden; position: fixed; width: 100%; height: 100vh; }
-        .app-container { display: flex; flex-direction: column; height: 100vh; background: white; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
         
-        /* Header & Controls */
-        .header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 12px 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1000; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 20px; font-weight: 700; }
-        .header-buttons { display: flex; gap: 8px; }
-        .header-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .time-display { margin-top: 8px; font-size: 13px; opacity: 0.95; display: flex; justify-content: space-between; }
-        
-        .controls { padding: 12px 15px; background: #f8f9fa; border-bottom: 2px solid #e0e0e0; }
-        .date-row { display: flex; gap: 8px; margin-bottom: 10px; }
-        .date-input, .city-select { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; background: white; }
-        
-        .quick-dates { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 3px; }
-        .quick-date-btn { padding: 8px 12px; background: white; border: 2px solid #ddd; border-radius: 16px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-        .quick-date-btn.active { background: #667eea; color: white; border-color: #667eea; }
-        
-        .calculate-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
-        .calculate-btn:disabled { opacity: 0.6; }
+        /* Layout */
+        #map { width: 100%; height: 60vh; background: #000; z-index: 1; }
+        #sky-view { 
+            width: 100%; 
+            height: 40vh; 
+            background: linear-gradient(to bottom, #0f172a 0%, #312e81 60%, #c084fc 100%); 
+            position: relative; 
+            border-top: 4px solid #fff;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
 
-        /* Map Area */
-        .map-container { flex: 1; position: relative; }
-        #map { width: 100%; height: 100%; }
-        
-        .status-banner { position: absolute; top: 10px; left: 10px; right: 10px; padding: 10px 12px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; display: none; font-size: 13px; }
-        .status-banner.show { display: block; animation: slideDown 0.3s ease; }
-        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .status-banner.loading { background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: white; }
-        .status-banner.success { background: #4caf50; color: white; }
-        
-        .progress-container { margin-top: 6px; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; }
-        .progress-bar { height: 100%; background: white; width: 0%; transition: width 0.3s; }
+        /* Schwebendes Kontrollpanel */
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 15px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
 
-        /* FABs */
-        .fab-group { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 1500; }
-        .fab { width: 56px; height: 56px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; border: none; color: white; font-size: 22px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); cursor: pointer; display: none; align-items: center; justify-content: center; }
-        .fab.show { display: flex; }
+        input[type="date"] { padding: 8px; border-radius: 15px; border: 1px solid #ccc; }
+        
+        button.calc-btn {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button.calc-btn:disabled { background: #ccc; cursor: wait; }
 
-        /* Layers Menu */
-        .layers-menu { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 3000; display: none; }
-        .layers-menu.show { display: flex; align-items: flex-end; }
-        .layers-content { width: 100%; background: white; border-radius: 20px 20px 0 0; padding: 20px; max-height: 70vh; overflow-y: auto; animation: slideUp 0.3s ease; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .layers-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .layers-title { font-size: 18px; font-weight: 700; color: #1e3c72; }
-        .close-btn { background: none; border: none; font-size: 24px; color: #666; cursor: pointer; }
-        
-        .layer-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; background: #f8f9fa; border-radius: 10px; margin-bottom: 10px; }
-        .layer-info { display: flex; align-items: center; gap: 12px; }
-        .layer-icon { width: 24px; height: 24px; border-radius: 50%; }
-        .layer-label { font-weight: 600; font-size: 14px; }
-        
-        .toggle-switch { position: relative; width: 50px; height: 28px; }
-        .toggle-switch input { display: none; }
-        .toggle-slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 28px; cursor: pointer; transition: 0.3s; }
-        .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background: white; border-radius: 50%; transition: 0.3s; }
-        .toggle-switch input:checked + .toggle-slider { background: #667eea; }
-        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(22px); }
+        /* Loader */
+        .loader {
+            position: fixed; top: 0; left: 0; width: 0%; height: 4px;
+            background: #00e5ff; z-index: 2000; transition: width 0.2s;
+        }
 
-        /* Info Popup */
-        .info-popup { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.2); z-index: 2000; transform: translateY(100%); transition: transform 0.3s ease; }
-        .info-popup.show { transform: translateY(0); }
-        .info-popup-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 15px; }
-        .info-popup-title { font-size: 18px; font-weight: 700; margin-bottom: 15px; color: #1e3c72; }
-        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .info-item { background: #f8f9fa; padding: 12px; border-radius: 8px; }
-        .info-item-label { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 4px; }
-        .info-item-value { font-size: 16px; font-weight: 700; color: #1e3c72; }
+        /* Sky View Labels */
+        .sky-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
         
-        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        canvas {
+            display: block;
+        }
+
+        .leaflet-control-geocoder { border-radius: 20px !important; }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <div class="header">
-            <div class="header-top">
-                <h1>🌙 Mondsichel Pro</h1>
-                <div class="header-buttons">
-                    <button class="header-btn" id="layersBtn" title="Ebenen"><i class="fas fa-layer-group"></i></button>
-                </div>
-            </div>
-            <div class="time-display">
-                <span id="worldTime">🌍 UTC: --:--</span>
-                <span id="localTime">📍 Lokal: --:--</span>
-            </div>
-        </div>
-        
-        <div class="controls">
-            <div class="date-row">
-                <input type="date" class="date-input" id="dateInput" />
-                <select class="city-select" id="citySelect">
-                    <option value="">Standort wählen</option>
-                    <optgroup label="🕋 Wichtige Städte">
-                        <option value="21.4225,39.8262">Mekka</option>
-                        <option value="52.5200,13.4050">Berlin</option>
-                        <option value="41.0082,28.9784">Istanbul</option>
-                    </optgroup>
-                </select>
-            </div>
-            
-            <div class="quick-dates">
-                <button class="quick-date-btn active" data-days="0">Heute</button>
-                <button class="quick-date-btn" data-days="1">Morgen</button>
-                <button class="quick-date-btn" data-days="29">Ramadan '26 (17.2.)</button>
-            </div>
-            
-            <button class="calculate-btn" id="calculateBtn">🔍 Berechnen</button>
-        </div>
-        
-        <div class="map-container">
-            <div id="map"></div>
-            <div class="status-banner" id="statusBanner">
-                <div id="statusText">Berechnung läuft...</div>
-                <div class="progress-container" id="progressContainer"><div class="progress-bar" id="progressBar"></div></div>
-            </div>
-        </div>
-        
-        <div class="fab-group">
-            <button class="fab" id="locationFab"><i class="fas fa-crosshairs"></i></button>
-            <button class="fab" id="statsFab"><i class="fas fa-chart-bar"></i></button>
-        </div>
+
+    <div class="loader" id="loader"></div>
+
+    <div class="controls">
+        <input type="date" id="datePicker">
+        <button class="calc-btn" onclick="calculateMap()">🚀 Berechnen</button>
     </div>
-    
-    <div class="layers-menu" id="layersMenu">
-        <div class="layers-content">
-            <div class="layers-header">
-                <div class="layers-title">⚙️ Kartenebenen</div>
-                <button class="close-btn" id="closeLayersBtn">&times;</button>
-            </div>
-            <div class="layer-item">
-                <div class="layer-info"><div class="layer-icon" style="background: lime;"></div><div class="layer-label">🟢 Bloßes Auge</div></div>
-                <label class="toggle-switch"><input type="checkbox" id="toggleEye" checked><span class="toggle-slider"></span></label>
-            </div>
-            <div class="layer-item">
-                <div class="layer-info"><div class="layer-icon" style="background: blue;"></div><div class="layer-label">🔵 Teleskop</div></div>
-                <label class="toggle-switch"><input type="checkbox" id="toggleTelescope" checked><span class="toggle-slider"></span></label>
-            </div>
-            <div class="layer-item">
-                <div class="layer-info"><div class="layer-icon" style="background: red;"></div><div class="layer-label">🔴 Nicht sichtbar</div></div>
-                <label class="toggle-switch"><input type="checkbox" id="toggleInvisible" checked><span class="toggle-slider"></span></label>
-            </div>
-            <div class="layer-item">
-                <div class="layer-info"><div class="layer-icon" style="background: linear-gradient(135deg, #FFD700, #FFA500);"></div><div class="layer-label">☀️ Tag/Nacht</div></div>
-                <label class="toggle-switch"><input type="checkbox" id="toggleTerminator" checked><span class="toggle-slider"></span></label>
-            </div>
-        </div>
+
+    <div id="map"></div>
+
+    <div id="sky-view">
+        <div class="sky-info" id="skyInfoText">Wähle einen Ort auf der Karte...</div>
+        <canvas id="skyCanvas"></canvas>
     </div>
-    
-    <div class="info-popup" id="infoPopup">
-        <div class="info-popup-handle"></div>
-        <div class="info-popup-title" id="infoTitle">📍 Info</div>
-        <div class="info-grid" id="infoGrid"></div>
-    </div>
-    
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@joergdietrich/leaflet.terminator@1.0.0/L.Terminator.js"></script>
-    
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+
     <script>
-        // Konfiguration
-        const CONFIG = {
-            gridStep: 4, // Größe der Punkte (kleiner = genauer aber langsamer)
-            minAltitude: 0.5,
-            minElongationInvisible: 7.0,
-            minElongationTelescope: 10.5
-        };
-        
-        let map, terminatorLayer, myLocationMarker;
-        let eyeLayer, telescopeLayer, invisibleLayer;
-        let currentData = null;
-        
-        // Initialisierung
-        window.addEventListener('load', () => {
-            initMap();
-            initUI();
-            
-            // Standard-Datum heute
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('dateInput').value = today;
-            
-            // Zeit-Update
-            setInterval(() => {
-                const now = new Date();
-                document.getElementById('worldTime').textContent = `🌍 UTC: ${now.toUTCString().split(' ')[4].substr(0,5)}`;
-                document.getElementById('localTime').textContent = `📍 Lokal: ${now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}`;
-            }, 1000);
+        // --- 1. SETUP ---
+        const map = L.map('map', { center: [20, 0], zoom: 2 });
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri'
+        }).addTo(map);
+
+        // Suchfunktion
+        const geocoder = L.Control.geocoder({
+            defaultMarkGeocode: false
+        }).on('markgeocode', function(e) {
+            const center = e.geocode.center;
+            map.setView(center, 6);
+            updateSkyView(center.lat, center.lng, e.geocode.name);
+        }).addTo(map);
+
+        // Klick Event auf Karte
+        map.on('click', function(e) {
+            updateSkyView(e.latlng.lat, e.latlng.lng, "Gewählter Ort");
         });
-        
-        function initMap() {
-            map = L.map('map', { center: [20, 0], zoom: 2, minZoom: 2 });
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
-            
-            eyeLayer = L.layerGroup().addTo(map);
-            telescopeLayer = L.layerGroup().addTo(map);
-            invisibleLayer = L.layerGroup().addTo(map);
+
+        const layers = {
+            green: L.layerGroup().addTo(map),
+            magenta: L.layerGroup().addTo(map),
+            blue: L.layerGroup().addTo(map)
+        };
+
+        // Canvas Setup
+        const canvas = document.getElementById('skyCanvas');
+        const ctx = canvas.getContext('2d');
+        let selectedLocation = null;
+
+        document.getElementById('datePicker').valueAsDate = new Date();
+
+        // Canvas Größe anpassen
+        function resizeCanvas() {
+            const container = document.getElementById('sky-view');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            if(selectedLocation) updateSkyView(selectedLocation.lat, selectedLocation.lon, selectedLocation.name);
         }
-        
-        function initUI() {
-            document.getElementById('calculateBtn').addEventListener('click', calculate);
-            
-            // Datum Buttons
-            document.querySelectorAll('.quick-date-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    document.querySelectorAll('.quick-date-btn').forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    
-                    const days = parseInt(e.target.dataset.days);
-                    const date = new Date();
-                    
-                    // Spezialfall für Ramadan Testdatum
-                    if(days === 29) { 
-                        document.getElementById('dateInput').value = "2026-02-17"; 
-                    } else {
-                        date.setDate(date.getDate() + days);
-                        document.getElementById('dateInput').value = date.toISOString().split('T')[0];
-                    }
-                });
-            });
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-            // Layer Menu
-            document.getElementById('layersBtn').addEventListener('click', () => document.getElementById('layersMenu').classList.add('show'));
-            document.getElementById('closeLayersBtn').addEventListener('click', () => document.getElementById('layersMenu').classList.remove('show'));
-            
-            // Toggles
-            const toggleLayer = (id, layer) => {
-                document.getElementById(id).addEventListener('change', (e) => {
-                    if(e.target.checked) layer.addTo(map); else map.removeLayer(layer);
-                });
-            };
-            toggleLayer('toggleEye', eyeLayer);
-            toggleLayer('toggleTelescope', telescopeLayer);
-            toggleLayer('toggleInvisible', invisibleLayer);
-            
-            document.getElementById('toggleTerminator').addEventListener('change', (e) => {
-                if(terminatorLayer) {
-                    if(e.target.checked) terminatorLayer.addTo(map); else map.removeLayer(terminatorLayer);
-                }
-            });
-            
-            // Stadt Auswahl
-            document.getElementById('citySelect').addEventListener('change', (e) => {
-                if(e.target.value) {
-                    const [lat, lon] = e.target.value.split(',').map(Number);
-                    map.setView([lat, lon], 6);
-                    if(myLocationMarker) map.removeLayer(myLocationMarker);
-                    myLocationMarker = L.marker([lat, lon]).addTo(map).bindPopup("Gewählter Ort").openPopup();
-                }
-            });
-            
-            // FABs
-            document.getElementById('locationFab').addEventListener('click', () => {
-                map.locate({setView: true, maxZoom: 6});
-                map.on('locationfound', e => {
-                    if(myLocationMarker) map.removeLayer(myLocationMarker);
-                    myLocationMarker = L.marker(e.latlng).addTo(map).bindPopup("Mein Standort").openPopup();
-                });
-            });
-            
-            document.getElementById('statsFab').addEventListener('click', showStats);
-            document.getElementById('infoPopup').addEventListener('click', () => document.getElementById('infoPopup').classList.remove('show'));
-        }
 
-        // --- ASTRONOMIE LOGIK (Vereinfacht ohne externe Lib für Demo-Zwecke) ---
-        // Hinweis: Für maximale Präzision sollte astronomy-engine genutzt werden.
-        // Hier nutzen wir Näherungsformeln, damit alles in einer Datei läuft.
-        
-        function toJulian(date) { return (date.getTime() / 86400000) - (date.getTimezoneOffset() / 1440) + 2440587.5; }
-        function rad(deg) { return deg * Math.PI / 180; }
-        function deg(rad) { return rad * 180 / Math.PI; }
-        
-        function getSunPos(jd) {
-            const n = jd - 2451545.0;
-            const L = (280.460 + 0.9856474 * n) % 360;
-            const g = (357.528 + 0.9856003 * n) % 360;
-            const lambda = (L + 1.915 * Math.sin(rad(g)) + 0.020 * Math.sin(rad(2 * g))) % 360;
-            const epsilon = 23.439 - 0.0000004 * n;
-            const ra = deg(Math.atan2(Math.cos(rad(epsilon)) * Math.sin(rad(lambda)), Math.cos(rad(lambda))));
-            const dec = deg(Math.asin(Math.sin(rad(epsilon)) * Math.sin(rad(lambda))));
-            return { ra, dec };
-        }
-        
-        function getMoonPos(jd) {
-            const T = (jd - 2451545.0) / 36525;
-            const L0 = 218.316 + 481267.881 * T;
-            const l = 134.963 + 477198.868 * T; 
-            const F = 93.272 + 483202.028 * T; 
-            const lambda = (L0 + 6.289 * Math.sin(rad(l))) % 360;
-            const beta = 5.128 * Math.sin(rad(F));
-            const epsilon = 23.439;
-            const ra = deg(Math.atan2(Math.cos(rad(epsilon)) * Math.sin(rad(lambda)) - Math.tan(rad(beta)) * Math.sin(rad(epsilon)), Math.cos(rad(lambda))));
-            const dec = deg(Math.asin(Math.sin(rad(epsilon)) * Math.sin(rad(lambda)) * Math.cos(rad(beta)) + Math.cos(rad(epsilon)) * Math.sin(rad(beta))));
-            return { ra, dec };
-        }
+        // --- 2. HIMMELSANSICHT LOGIK (Der neue Teil) ---
 
-        function getAlt(ra, dec, lat, lon, jd) {
-            const GMST = (280.46061837 + 360.98564736629 * (jd - 2451545.0)) % 360;
-            const LST = (GMST + lon) % 360;
-            const HA = rad(LST - ra);
-            const sinAlt = Math.sin(rad(lat)) * Math.sin(rad(dec)) + Math.cos(rad(lat)) * Math.cos(rad(dec)) * Math.cos(HA);
-            return deg(Math.asin(sinAlt));
-        }
-
-        function getElongation(ra1, dec1, ra2, dec2) {
-            const dra = rad(ra2 - ra1);
-            const d1 = rad(dec1); const d2 = rad(dec2);
-            const cosSep = Math.sin(d1)*Math.sin(d2) + Math.cos(d1)*Math.cos(d2)*Math.cos(dra);
-            return deg(Math.acos(cosSep));
-        }
-
-        // --- BERECHNUNG ---
-        
-        async function calculate() {
-            const dateStr = document.getElementById('dateInput').value;
-            if(!dateStr) return;
+        function updateSkyView(lat, lon, name) {
+            selectedLocation = { lat, lon, name };
+            const dateInput = document.getElementById('datePicker').value;
+            const date = new Date(dateInput);
             
-            const btn = document.getElementById('calculateBtn');
-            btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+            // 1. Sonnenuntergang berechnen
+            const observer = new Astronomy.Observer(lat, lon, 0);
             
-            const banner = document.getElementById('statusBanner');
-            banner.className = 'status-banner show loading';
-            document.getElementById('progressContainer').style.display = 'block';
-
-            // Ebenen leeren
-            eyeLayer.clearLayers(); telescopeLayer.clearLayers(); invisibleLayer.clearLayers();
-            if(terminatorLayer) map.removeLayer(terminatorLayer);
+            // Wir suchen den Sonnenuntergang am gewählten Tag
+            // Wir setzen die Zeit auf Mittag, um den nächsten Untergang zu finden
+            date.setUTCHours(12,0,0,0);
+            const sunset = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, 1, date, 1);
             
-            // Terminator (Tag/Nacht)
-            const dateObj = new Date(dateStr + 'T12:00:00Z');
-            terminatorLayer = L.terminator({ time: dateObj }).addTo(map);
-
-            // Raster berechnen
-            const results = await calculateGrid(dateObj);
-            currentData = { date: dateObj, results };
-            
-            displayResults(results);
-            
-            // Fertig
-            banner.className = 'status-banner show success';
-            document.getElementById('statusText').textContent = `✅ ${results.length} Punkte berechnet`;
-            document.getElementById('locationFab').classList.add('show');
-            document.getElementById('statsFab').classList.add('show');
-            setTimeout(() => banner.classList.remove('show'), 3000);
-            
-            btn.disabled = false; btn.innerText = '🔍 Berechnen';
-        }
-
-        async function calculateGrid(date) {
-            const results = [];
-            const latRange = []; for(let l=-60; l<60; l+=CONFIG.gridStep) latRange.push(l);
-            const lonRange = []; for(let l=-180; l<180; l+=CONFIG.gridStep) lonRange.push(l);
-            const total = latRange.length * lonRange.length;
-            let processed = 0;
-
-            const jdBase = toJulian(date);
-
-            for (const lat of latRange) {
-                // Async Pause damit UI nicht blockiert
-                if(processed % 100 === 0) {
-                    document.getElementById('progressBar').style.width = (processed/total*100) + '%';
-                    await new Promise(r => setTimeout(r, 0));
-                }
-                
-                for (const lon of lonRange) {
-                    // Wir testen Sonnenuntergangszeit (grob angenähert JD + lon-Offset)
-                    // Besser wäre exakte Sunset-Berechnung, hier vereinfacht für Speed
-                    const localJD = jdBase - (lon / 360); 
-                    const sun = getSunPos(localJD);
-                    const moon = getMoonPos(localJD);
-                    
-                    const moonAlt = getAlt(moon.ra, moon.dec, lat, lon, localJD);
-                    const elongation = getElongation(sun.ra, sun.dec, moon.ra, moon.dec);
-                    
-                    let status = 'invisible';
-                    
-                    // WICHTIG: Hier war vorher der Fehler!
-                    // Jetzt wird auch 'invisible' explizit als Ergebnis gespeichert.
-                    
-                    if (moonAlt >= CONFIG.minAltitude) {
-                        if (elongation >= CONFIG.minElongationTelescope) status = 'eye';
-                        else if (elongation >= CONFIG.minElongationInvisible) status = 'telescope';
-                    }
-                    // Wenn moonAlt < minAltitude bleibt es 'invisible' -> ROTER PUNKT
-
-                    results.push({ lat, lon, status, moonAlt, elongation });
-                    processed++;
-                }
+            if (!sunset) {
+                document.getElementById('skyInfoText').innerHTML = `Kein Sonnenuntergang (Polartag/nacht) in<br><b>${name}</b>`;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return;
             }
-            return results;
+
+            const time = sunset.date; // Zeitpunkt des Untergangs
+            
+            // Anzeige Info
+            const localTime = time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('skyInfoText').innerHTML = 
+                `<b>${name}</b><br>Sonnenuntergang: ${localTime}<br>Blick Richtung West`;
+
+            // 2. Positionen berechnen
+            const bodies = [
+                { name: 'Sonne', type: 'Sun', color: '#FFD700', radius: 10 },
+                { name: 'Mond', type: 'Moon', color: '#FFF', radius: 8 },
+                { name: 'Venus', type: 'Venus', color: '#00FFFF', radius: 4 },
+                { name: 'Jupiter', type: 'Jupiter', color: '#FFDAB9', radius: 4 },
+                { name: 'Saturn', type: 'Saturn', color: '#F4A460', radius: 3 },
+                { name: 'Mars', type: 'Mars', color: '#FF4500', radius: 3 },
+                { name: 'Merkur', type: 'Mercury', color: '#B0C4DE', radius: 2 }
+            ];
+
+            const positions = [];
+            
+            // Wir definieren das Blickfeld (FOV)
+            // Zentrum: Westen (270 Grad Azimut)
+            // Wir zeigen 60 Grad Weite an (240 bis 300)
+            const centerAz = sunset.azimuth || 270; // Nutze echten Sonnenuntergangs-Azimut als Zentrum
+            const fov = 60; 
+            const pxPerDeg = canvas.width / fov;
+
+            bodies.forEach(body => {
+                const astroBody = Astronomy.Body[body.type];
+                const equator = Astronomy.Equator(astroBody, time, observer, true, true);
+                const horizon = Astronomy.Horizon(time, observer, equator.ra, equator.dec, 'normal');
+                
+                positions.push({
+                    ...body,
+                    az: horizon.az,
+                    alt: horizon.alt,
+                    dist: equator.dist // Entfernung (für Mondgröße, hier vereinfacht)
+                });
+            });
+
+            // 3. Zeichnen
+            drawSky(positions, centerAz, pxPerDeg);
         }
 
-        function displayResults(results) {
-            results.forEach(r => {
-                let layer, color;
-                if(r.status === 'eye') { layer = eyeLayer; color = 'lime'; }
-                else if(r.status === 'telescope') { layer = telescopeLayer; color = 'blue'; }
-                else { layer = invisibleLayer; color = 'red'; } // Rote Punkte!
-                
-                L.circleMarker([r.lat, r.lon], {
-                    radius: r.status === 'invisible' ? 2 : 4, // Rote Punkte etwas kleiner
-                    fillColor: color, color: color, weight: 0, fillOpacity: 0.5
-                }).addTo(layer).on('click', () => showInfo(r));
+        function drawSky(bodies, centerAz, pxPerDeg) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Horizont Linie zeichnen
+            const horizonY = canvas.height * 0.8; // Horizont bei 80% der Höhe
+            
+            // Linie
+            ctx.beginPath();
+            ctx.moveTo(0, horizonY);
+            ctx.lineTo(canvas.width, horizonY);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Körper zeichnen
+            bodies.forEach(body => {
+                // X-Position berechnen
+                let azDiff = body.az - centerAz;
+                // Korrektur für 360-Grad Sprung
+                if (azDiff > 180) azDiff -= 360;
+                if (azDiff < -180) azDiff += 360;
+
+                const x = (canvas.width / 2) + (azDiff * pxPerDeg);
+                const y = horizonY - (body.alt * pxPerDeg); // Y geht nach unten, also minus
+
+                // Nur zeichnen wenn im Bild
+                if (x > -50 && x < canvas.width + 50 && y > -50 && y < canvas.height + 50) {
+                    
+                    // Zeichnen
+                    ctx.beginPath();
+                    
+                    if (body.type === 'Moon') {
+                        // Mond speziell (simuliert)
+                        ctx.fillStyle = body.color;
+                        ctx.arc(x, y, body.radius * 1.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Kleiner Schatten für Phase (sehr vereinfacht: Neumond)
+                        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                        ctx.beginPath();
+                        ctx.arc(x - 2, y - 2, body.radius * 1.3, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        // Sterne/Planeten/Sonne
+                        ctx.fillStyle = body.color;
+                        ctx.arc(x, y, body.radius, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Schein (Glow)
+                        ctx.beginPath();
+                        ctx.arc(x, y, body.radius * 3, 0, Math.PI * 2);
+                        ctx.fillStyle = body.color;
+                        ctx.globalAlpha = 0.2;
+                        ctx.fill();
+                        ctx.globalAlpha = 1.0;
+                    }
+
+                    // Label/Text
+                    ctx.fillStyle = 'white';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    // Text unter dem Objekt (außer wenn unter Horizont)
+                    const textY = y > horizonY ? y - 15 : y + 20;
+                    ctx.fillText(body.name, x, textY);
+                }
             });
         }
 
-        function showInfo(p) {
-            const t = { 'eye': '🟢 Auge', 'telescope': '🔵 Teleskop', 'invisible': '🔴 Unsichtbar' };
-            document.getElementById('infoTitle').textContent = t[p.status];
-            document.getElementById('infoGrid').innerHTML = `
-                <div class="info-item"><div class="info-item-label">Position</div><div class="info-item-value">${p.lat.toFixed(1)}, ${p.lon.toFixed(1)}</div></div>
-                <div class="info-item"><div class="info-item-label">Mondhöhe</div><div class="info-item-value">${p.moonAlt.toFixed(1)}°</div></div>
-                <div class="info-item"><div class="info-item-label">Elongation</div><div class="info-item-value">${p.separation ? p.separation.toFixed(1) : p.elongation.toFixed(1)}°</div></div>
-            `;
-            document.getElementById('infoPopup').classList.add('show');
-            setTimeout(() => document.getElementById('infoPopup').classList.remove('show'), 4000);
+        // --- 3. KARTEN BERECHNUNG (Alte Logik) ---
+
+        function getMoonVisibility(lat, lon, dateObj) {
+            const date = new Date(dateObj);
+            date.setUTCHours(12, 0, 0, 0);
+            const observer = new Astronomy.Observer(lat, lon, 0);
+            const sunset = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, 1, date, 1);
+            if (!sunset) return null;
+
+            const time = sunset.date;
+            const sunPos = Astronomy.Equator(Astronomy.Body.Sun, time, observer, true, true);
+            const moonPos = Astronomy.Equator(Astronomy.Body.Moon, time, observer, true, true);
+            const sunHor = Astronomy.Horizon(time, observer, sunPos.ra, sunPos.dec, 'normal');
+            const moonHor = Astronomy.Horizon(time, observer, moonPos.ra, moonPos.dec, 'normal');
+
+            const altMoon = moonHor.alt;
+            const elongation = Astronomy.AngleBetween(sunPos.vec, moonPos.vec);
+            
+            // Odeh Logik
+            let V = altMoon - (-0.1018 * Math.pow(elongation, 2) + 1.6787 * elongation - 5.5704);
+
+            if (altMoon <= 0.5 || elongation < 7.0) return 'invisible'; 
+            if (V >= 5.6) return 'green';
+            if (V >= 2.0) return 'magenta';
+            if (V >= -0.9) return 'blue';
+            return 'invisible';
         }
 
-        function showStats() {
-            if(!currentData) return;
-            const eye = currentData.results.filter(r => r.status === 'eye').length;
-            const tel = currentData.results.filter(r => r.status === 'telescope').length;
-            const inv = currentData.results.filter(r => r.status === 'invisible').length;
-            alert(`Statistik:\n🟢 ${eye}\n🔵 ${tel}\n🔴 ${inv}`);
+        async function calculateMap() {
+            const btn = document.querySelector('.calc-btn');
+            const loader = document.getElementById('loader');
+            const dateInput = document.getElementById('datePicker').value;
+            
+            if (!dateInput) return alert("Bitte Datum wählen");
+            btn.disabled = true;
+            layers.green.clearLayers();
+            layers.magenta.clearLayers();
+            layers.blue.clearLayers();
+            
+            const step = 2; 
+            const date = new Date(dateInput);
+
+            const processChunk = (latStart) => {
+                for (let lat = latStart; lat > -60; lat -= step) {
+                    if (lat < latStart && (latStart - lat) % 5 === 0) {
+                        setTimeout(() => processChunk(lat), 0);
+                        return;
+                    }
+                    for (let lon = -180; lon < 180; lon += step) {
+                        const result = getMoonVisibility(lat, lon, date);
+                        if (result !== 'invisible' && result !== null) {
+                            let color = result === 'green' ? '#00FF00' : (result === 'magenta' ? '#FF00FF' : '#0055FF');
+                            L.circleMarker([lat, lon], {
+                                radius: 3, fillColor: color, color: color, weight: 0, opacity: 0.6, fillOpacity: 0.6
+                            }).addTo(layers[result]);
+                        }
+                    }
+                    loader.style.width = (Math.abs(60 - lat) / 120 * 100) + "%";
+                }
+                btn.disabled = false;
+                loader.style.width = "0%";
+            };
+            processChunk(60); 
         }
+
+        setTimeout(calculateMap, 1000);
     </script>
 </body>
 </html>
