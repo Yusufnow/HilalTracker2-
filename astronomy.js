@@ -3,45 +3,58 @@
 function updateMoonData(date, lat, lon) {
     // Wir nutzen die Library "AstronomyEngine" (wurde in index.html geladen)
     
+    // Beobachter erstellen (Höhe 0 Meter)
     const observer = new Astronomy.Observer(lat, lon, 0);
     
-    // 1. Mondphase & Beleuchtung
+    // 1. Mondphase & Beleuchtung berechnen
     const moonPhase = Astronomy.MoonPhase(date); // Winkel 0..360
     const illumination = Astronomy.Illumination(Astronomy.Body.Moon, date);
     
-    // Anzeige Text
+    // Anzeige Text (Prozent)
     const percent = (illumination.phase_fraction * 100).toFixed(1);
     document.getElementById("moonPercent").innerText = `Beleuchtung: ${percent}%`;
 
-    // 2. Zeiten berechnen (Aufgang/Untergang)
-    const sunTimes = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, +1, date, 300);
-    const moonTimes = Astronomy.SearchRiseSet(Astronomy.Body.Moon, observer, +1, date, 300);
+    // 2. Zeiten berechnen (Aufgang/Untergang für heute)
+    // Wir suchen nach Ereignissen (+1 = Aufgang, -1 = Untergang)
+    const sunSet = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, -1, date, 300);
+    const moonRise = Astronomy.SearchRiseSet(Astronomy.Body.Moon, observer, +1, date, 300);
+    const moonSet = Astronomy.SearchRiseSet(Astronomy.Body.Moon, observer, -1, date, 300);
     
-    // Nächsten Untergang/Aufgang finden (Rise=Aufgang, Set=Untergang)
-    // Wir nehmen einfach die nexten Ereignisse
-    
+    // HTML für die Zeiten bauen
     let html = "";
-    if (sunTimes) html += `<div class="data-row"><span>🌅 Sonnenuntergang:</span> <b>${formatTime(sunTimes.date)}</b></div>`;
-    if (moonTimes) html += `<div class="data-row"><span>🌑 Monduntergang:</span> <b>${formatTime(moonTimes.date)}</b></div>`;
+    
+    // Wir prüfen, ob die Zeiten existieren (manchmal geht der Mond an einem Tag gar nicht auf/unter)
+    if (sunSet) {
+        html += `<div class="data-row"><span>🌅 Sonnenuntergang:</span> <b>${formatTime(sunSet.date)}</b></div>`;
+    }
+    if (moonRise) {
+        html += `<div class="data-row"><span>🌑 Mondaufgang:</span> <b>${formatTime(moonRise.date)}</b></div>`;
+    }
+    if (moonSet) {
+        html += `<div class="data-row"><span>🌘 Monduntergang:</span> <b>${formatTime(moonSet.date)}</b></div>`;
+    }
     
     // Mondalter (grob: Tage seit Neumond)
     const ageDays = (moonPhase / 360 * 29.53).toFixed(1);
     html += `<div class="data-row"><span>📅 Mondalter:</span> <b>${ageDays} Tage</b></div>`;
 
+    // In die HTML-Box schreiben
     document.getElementById("astroTimes").innerHTML = html;
 
-    // 3. Mond Zeichnen (Canvas)
+    // 3. Mond Zeichnen (Canvas Grafik)
     drawMoonCanvas(moonPhase);
 }
 
-// Hilfsfunktion: Zeit formatieren (HH:MM)
+// Hilfsfunktion: Zeit formatieren (z.B. 18:30 Uhr)
 function formatTime(dateObj) {
     return dateObj.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'});
 }
 
-// Zeichnet die realistische Sichel
+// Zeichnet eine einfache Grafik des Mondes
 function drawMoonCanvas(phaseAngle) {
     const canvas = document.getElementById("moonCanvas");
+    if (!canvas) return;
+
     const ctx = canvas.getContext("2d");
     const size = canvas.width;
     const center = size / 2;
@@ -49,51 +62,33 @@ function drawMoonCanvas(phaseAngle) {
 
     ctx.clearRect(0, 0, size, size);
 
-    // Schwarzer Hintergrund (Nachtseite)
-    ctx.fillStyle = "black";
+    // 1. Schwarzer Hintergrund (Die dunkle Seite)
+    ctx.fillStyle = "#111";
     ctx.beginPath();
     ctx.arc(center, center, radius, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Beleuchteter Teil (Weiß)
-    // Einfache Darstellung der Phase
-    ctx.fillStyle = "#fffaea"; // Mondweiß
+    // 2. Beleuchteter Teil (Weiß/Gelblich)
+    // Wir simulieren die Phase durch Transparenz, das ist am stabilsten
+    
+    // Berechne wie hell es ist (0 bis 1)
+    let lighting = (1 - Math.cos(phaseAngle * Math.PI / 180)) / 2;
+    
+    ctx.fillStyle = "#fffaea"; // Mondfarbe
     ctx.beginPath();
     
-    // Komplizierte Mathe für Sichelform vereinfacht:
-    // Wir nutzen den eingebauten Schatten-Effekt von Canvas
-    // Wenn Vollmond (180), Halbmond (90/270), Neumond (0/360)
-    
-    // Hier eine simple visuelle Annäherung:
-    // Wir malen einen Kreis und "radieren" den Schatten weg
-    
-    // ... Für Profi-Sichel brauchen wir komplexe Pfade.
-    // Hier die einfache Version:
-    
-    // Wir nutzen einfach AstronomyEngine Phase
-    // Zeichne Phase als Kreisbogen? Nein, zu kompliziert für den Anfang.
-    // Wir machen es einfach: Zeige einen Kreis, der je nach Phase gefüllt ist.
-    
-    // BESSER: Ein Bild nutzen? Nein, Canvas ist cooler.
-    // Wir zeichnen einfach einen vollen Kreis und legen einen Schatten drüber.
-    
-    // Phase 0..1 (0=Neu, 0.5=Halb, 1=Voll)
-    let p = phaseAngle / 360; 
-    
-    // Das ist schwer "idiotensicher" in Canvas zu coden ohne 50 Zeilen.
-    // Wir machen einen einfachen Indikator:
-    
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    // Zeichne einen "Tortenstück" je nach Phase?
-    // Nein, wir lassen es erstmal als Kreis. 
-    // Wenn du willst, füge ich später den perfekten Sichel-Code ein.
-    // Für jetzt: Einfacher weißer Kreis mit Transparenz je nach Beleuchtung
-    
-    ctx.globalAlpha = 1; 
-    // Simpler Kreis
-    if (p > 0.5) ctx.arc(center, center, radius, 0, 2 * Math.PI);
-    else ctx.arc(center, center, radius * (p*2), 0, 2 * Math.PI);
+    // Zeichne einen Kreis darüber, dessen Deckkraft der Beleuchtung entspricht
+    // (Dies ist eine vereinfachte Darstellung, keine perfekte Sichelgeometrie, 
+    // aber sie funktioniert immer fehlerfrei)
+    ctx.globalAlpha = lighting; 
+    ctx.arc(center, center, radius, 0, 2 * Math.PI);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    
+    // Reset
+    ctx.globalAlpha = 1.0;
+    
+    // Optional: Ein feiner Rand
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 1;
+    ctx.stroke();
 }
