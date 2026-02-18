@@ -1,110 +1,99 @@
-// Globale Variablen für die App
+// Globale Variablen
 let map;
 let markers = {};
 let selectedLat = 21.4225; // Start: Mekka
 let selectedLon = 39.8262;
 
-// 1. Starten, sobald die Seite geladen ist
+// 1. Starten wenn Seite geladen ist
 window.addEventListener("load", () => {
     initMap();
     setupInputs();
     
-    // Offline-Modus (Service Worker) aktivieren
+    // Service Worker für Offline (PWA)
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./service-worker.js")
-            .then(() => console.log("Service Worker registriert"))
-            .catch(err => console.log("SW Fehler:", err));
+        navigator.serviceWorker.register("./service-worker.js");
     }
 
-    // Einmal alles berechnen zum Start
+    // Start-Update
     updateAll();
 });
 
-// 2. Karte initialisieren (Leaflet)
+// 2. Karte initialisieren
 function initMap() {
-    // Karte erstellen
     map = L.map('map', { zoomControl: false }).setView([selectedLat, selectedLon], 5);
     
-    // Satellitenbild-Layer hinzufügen
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Esri Satellite',
-        maxZoom: 18
+        attribution: 'Esri Satellite'
     }).addTo(map);
 
-    // Wenn man auf die Karte klickt -> Ort ändern
+    // Klick auf Karte setzt neuen Ort
     map.on('click', (e) => {
         selectedLat = e.latlng.lat;
         selectedLon = e.latlng.lng;
-        document.getElementById("locationName").innerText = "Markierter Ort";
+        document.getElementById("locationName").innerText = "Gewählter Ort";
         updateAll();
     });
 }
 
-// 3. Eingabefelder einrichten (Datum & Suche)
+// 3. Inputs einrichten
 function setupInputs() {
-    // Datum auf "Jetzt" setzen (unter Berücksichtigung der Zeitzone)
+    // Datum auf Heute setzen
     const now = new Date();
+    // Offset für korrekte lokale Zeit im Input
     const localIso = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0,16);
     document.getElementById("dateInput").value = localIso;
 
-    // Wenn Datum geändert wird -> Neu berechnen
+    // Bei Datumsänderung updaten
     document.getElementById("dateInput").addEventListener("change", updateAll);
 
-    // Stadtsuche (wenn man Enter drückt oder den Fokus verliert)
+    // Stadtsuche
     document.getElementById("citySearch").addEventListener("change", async function() {
         const query = this.value;
         if (!query) return;
 
-        // Wir nutzen die kostenlose OpenStreetMap Suche (Nominatim)
+        // Nominatim Suche (OpenStreetMap)
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
-        
         try {
             const res = await fetch(url);
             const data = await res.json();
-            
             if (data.length > 0) {
-                // Ersten Treffer nehmen
                 selectedLat = parseFloat(data[0].lat);
                 selectedLon = parseFloat(data[0].lon);
                 
-                // Karte dorthin bewegen
+                // Karte bewegen
                 map.setView([selectedLat, selectedLon], 10);
-                
-                // Name anzeigen (nur den ersten Teil, z.B. "Berlin")
                 document.getElementById("locationName").innerText = data[0].display_name.split(",")[0];
-                
                 updateAll();
             } else {
-                alert("Ort nicht gefunden!");
+                alert("Stadt nicht gefunden!");
             }
         } catch (e) {
-            console.error("Fehler bei der Suche:", e);
+            console.error("Suchfehler", e);
         }
     });
 }
 
-// 4. Hauptfunktion: Alles aktualisieren
+// 4. HAUPTFUNKTION: Alles aktualisieren
 function updateAll() {
     const date = new Date(document.getElementById("dateInput").value);
 
-    // Marker auf der Karte setzen
+    // Marker auf Karte setzen
     if (markers.main) map.removeLayer(markers.main);
     markers.main = L.marker([selectedLat, selectedLon]).addTo(map);
 
-    // Jetzt rufen wir die Funktionen aus den anderen Dateien auf
-    // Wir prüfen erst, ob die Dateien schon fertig sind (typeof check), damit es keinen Absturz gibt
+    // --- Module aufrufen (die in anderen Dateien sind) ---
     
-    // Mond-Daten (aus astronomy.js)
+    // 1. Mond Daten (aus astronomy.js)
     if (typeof updateMoonData === "function") {
         updateMoonData(date, selectedLat, selectedLon);
     }
 
-    // 3D Himmel (aus sky3d.js)
+    // 2. 3D Himmel (aus sky3d.js)
     if (typeof updateSkyView === "function") {
         updateSkyView(date, selectedLat, selectedLon);
     }
 
-    // Qibla Richtung (aus qibla.js)
+    // 3. Qibla (aus qibla.js)
     if (typeof updateQibla === "function") {
         updateQibla(selectedLat, selectedLon, map);
     }
